@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>kalibr2</name>
+  <version>0.1.0</version>
+  <description>Experimental streaming camera-IMU calibration with AprilGrid and continuous-time splines.</description>
+  <maintainer email="maintainers@example.invalid">Kalibr2 contributors</maintainer>
+  <license>Proprietary</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>rclcpp</depend>
+  <depend>rosbag2_cpp</depend>
+  <depend>sensor_msgs</depend>
+  <depend>eigen</depend>
+  <depend>libceres-dev</depend>
+  <depend>libopencv-dev</depend>
+  <depend>libtbb-dev</depend>
+  <depend>libapriltag-dev</depend>
+  <depend>yaml-cpp</depend>
+  <exec_depend>rosbag2_storage_mcap</exec_depend>
+  <exec_depend>rosbag2_storage_sqlite3</exec_depend>
+  <export><build_type>ament_cmake</build_type></export>
+</package>

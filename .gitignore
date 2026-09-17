@@ -1,0 +1,10 @@
+build/
+install/
+log/
+.deps/
+__pycache__/
+*.bag
+*.mcap
+*.db3
+results/
+dataset/

@@ -1,0 +1,8 @@
+# Replace with YOUR independently calibrated camera intrinsics.
+cam0:
+  camera_model: pinhole
+  distortion_model: radtan
+  intrinsics: [600.0, 600.0, 640.0, 480.0]
+  distortion_coeffs: [0.0, 0.0, 0.0, 0.0]
+  resolution: [1280, 960]
+  rostopic: /cam0/image_raw

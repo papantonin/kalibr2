@@ -1,0 +1,6 @@
+# Example geometry, not a measurement of your printed target.
+target_type: aprilgrid
+tagRows: 6
+tagCols: 6
+tagSize: 0.088
+tagSpacing: 0.3

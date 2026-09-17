@@ -1,0 +1,7 @@
+# Illustrative values only; replace with the measured sensor noise model.
+rostopic: /imu0
+update_rate: 200.0
+accelerometer_noise_density: 0.002
+accelerometer_random_walk: 0.0002
+gyroscope_noise_density: 0.0002
+gyroscope_random_walk: 0.00002

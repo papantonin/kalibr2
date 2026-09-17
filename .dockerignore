@@ -1,0 +1,10 @@
+.git
+build
+install
+log
+.deps
+results
+dataset
+*.bag
+*.mcap
+*.db3

@@ -1,0 +1,11 @@
+name: C++ and ROS2
+on: [push, pull_request]
+jobs:
+  docker:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and test ROS2 image
+        run: docker build -t kalibr2:test -f docker/Dockerfile .
+      - name: Installed CLI
+        run: docker run --rm kalibr2:test
