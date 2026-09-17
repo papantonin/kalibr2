@@ -1,7 +1,7 @@
-# Références et attributions
+# References and attribution
 
-Kalibr2 est un prototype indépendant, sans affiliation ou approbation ETH Zurich.
-Les équations et conventions s'appuient sur les travaux de Kalibr :
+Kalibr2 is an independent prototype, without affiliation with or endorsement by
+ETH Zurich. Its equations and conventions build on the following research:
 
 - Paul Furgale, Joern Rehder, Roland Siegwart, *Unified Temporal and Spatial
   Calibration for Multi-Sensor Systems*, IROS 2013.
@@ -10,15 +10,15 @@ Les équations et conventions s'appuient sur les travaux de Kalibr :
 - Christiane Sommer et al., *Efficient Derivative Computation for Cumulative
   B-Splines on Lie Groups*, CVPR 2020.
 
-Le noyau est réimplémenté ici ; aucun sous-module du moteur aslam de Kalibr n'est
-embarqué. Les six mots de référence de tags dans `tests/test_detector.cpp` sont
-ceux du générateur de mire Kalibr, dérivés d'AprilTags. Sources :
+The core is reimplemented here; no submodule of Kalibr's aslam engine is bundled.
+The six reference tag codewords in `tests/test_detector.cpp` come from Kalibr's
+target generator and are derived from AprilTags. Sources:
 [Kalibr](https://github.com/ethz-asl/kalibr),
-[générateur](https://github.com/ethz-asl/kalibr/blob/master/aslam_offline_calibration/kalibr/python/kalibr_create_target_pdf).
+[target generator](https://github.com/ethz-asl/kalibr/blob/master/aslam_offline_calibration/kalibr/python/kalibr_create_target_pdf).
 
 This product includes software developed by the Autonomous Systems Lab and Skybotix AG.
 
-Licence historique Kalibr (à conserver pour tout code repris) :
+Historical Kalibr license notice (retain for reused code):
 
 Copyright (c) 2014, Paul Furgale, Jérôme Maye and Jörn Rehder,
 Autonomous Systems Lab, ETH Zurich, Switzerland
@@ -46,8 +46,8 @@ LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
 OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 OF THE POSSIBILITY OF SUCH DAMAGE.
 
-Les dépendances Ceres, Eigen, oneTBB, OpenCV, AprilTag, yaml-cpp, ROS 2 et rosbags
-sont installées séparément et conservent leurs licences respectives. Leurs notices
-sont fournies par les paquets système et Python dans l'image de développement.
-Le champ `Proprietary` du package indique uniquement qu'aucune licence du nouveau
-code n'a encore été choisie ; il ne modifie pas les licences de ces dépendances.
+Ceres, Eigen, oneTBB, OpenCV, AprilTag, yaml-cpp, ROS 2, and rosbags are installed
+separately and retain their respective licenses. Their notices are provided by
+the system and Python packages in the development image. The package's
+`Proprietary` field only indicates that a license for the new code has not yet
+been selected; it does not change the licenses of these dependencies.
