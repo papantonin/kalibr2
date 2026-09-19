@@ -81,9 +81,9 @@ remain fixed.
 Ceres evaluates residuals and Jacobians across multiple threads. The linear
 solver is `SPARSE_NORMAL_CHOLESKY`, using available sparse libraries (SuiteSparse
 in Docker). This does not guarantee parallel execution of the entire
-factorization. A Huber loss is applied per frame. Calibration exports per-corner residuals,
-summary statistics, and a PDF report with time, histogram, frame, and image-map
-plots; per-corner robustification remains future work.
+factorization. A Huber loss is applied per frame. Calibration exports per-corner residuals, summary statistics, and a
+single-page PDF report with numeric reprojection diagnostics; per-corner
+robustification remains future work.
 
 ## Checks and limitations
 

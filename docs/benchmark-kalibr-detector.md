@@ -120,7 +120,8 @@ Using the stored metrics (no new calibration run):
 Subtracting extraction from total gives 81.519 s versus 22.358 s, but this
 remainder includes initialization, optimization, output/report generation and
 container overhead; it must not be labeled pure solver time. Original Kalibr
-also generates a PDF report, unlike Kalibr2. Most of the absolute time saved
+also generated a PDF report during these measurements; Kalibr2 now writes a
+single-page PDF report. Most of the absolute time saved
 is outside extraction. The extraction comparison includes input handling and
 filtering, and is not a microbenchmark of identical detector settings.
 

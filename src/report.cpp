@@ -2,7 +2,9 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
+#include <ctime>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -36,6 +38,19 @@ std::string json_number(double value) {
   if (!std::isfinite(value)) return "null";
   std::ostringstream out;
   out << std::setprecision(17) << value;
+  return out.str();
+}
+std::string utc_time_minute() {
+  const auto now = std::chrono::system_clock::now();
+  const std::time_t time = std::chrono::system_clock::to_time_t(now);
+  std::tm utc{};
+#if defined(_WIN32)
+  gmtime_s(&utc, &time);
+#else
+  if (const std::tm* value = std::gmtime(&time)) utc = *value;
+#endif
+  std::ostringstream out;
+  out << std::put_time(&utc, "%Y-%m-%d %H:%M UTC");
   return out.str();
 }
 std::string pdf_escape(const std::string& text) {
@@ -108,11 +123,13 @@ void write_csv(const std::filesystem::path& path, const CalibrationResult& resul
   if (!out) throw std::runtime_error("Unable to write residuals CSV");
 }
 void write_summary_json(const std::filesystem::path& path, const CalibrationResult& result,
-                        const Summary& summary, const std::vector<FrameSummary>& frames) {
+                        const Summary& summary, const std::vector<FrameSummary>& frames,
+                        const std::string& generated_at) {
   std::ofstream out(path);
   out << "{\n";
   out << "  \"corner_residuals\": " << summary.count << ",\n";
   out << "  \"camera_frames\": " << frames.size() << ",\n";
+  out << "  \"generated_at_utc\": \"" << generated_at << "\",\n";
   out << "  \"rmse_px\": " << json_number(result.reprojection_rmse) << ",\n";
   out << "  \"mean_px\": " << json_number(summary.mean) << ",\n";
   out << "  \"median_px\": " << json_number(summary.median) << ",\n";
@@ -198,106 +215,57 @@ class Pdf {
   std::filesystem::path path_;
   std::vector<std::ostringstream> pages_;
 };
-void axes(Pdf& pdf, double x, double y, double w, double h, const std::string& title,
-          const std::string& x_label, const std::string& y_label) {
-  pdf.text(x, y + h + 14, 12, title);
-  pdf.line(x, y, x + w, y);
-  pdf.line(x, y, x, y + h);
-  pdf.text(x + w * 0.42, y - 18, 8, x_label);
-  pdf.text(x - 28, y + h + 2, 8, y_label);
-}
 void draw_report(const std::filesystem::path& path, const CameraConfig& camera,
                  const CalibrationResult& result, const Summary& summary,
-                 const std::vector<FrameSummary>& frames) {
+                 const std::vector<FrameSummary>& frames,
+                 const std::string& generated_at) {
   Pdf pdf(path);
   pdf.page();
   pdf.text(50, 800, 20, "Kalibr2 calibration report");
-  pdf.text(50, 774, 10, "Camera topic: " + camera.topic);
-  pdf.text(50, 758, 10, "Resolution: " + std::to_string(camera.width) + " x " + std::to_string(camera.height));
-  pdf.text(50, 742, 10, "Model: " + camera.model + " / " + camera.distortion_model);
-  pdf.text(50, 710, 13, "Extrinsics T_cam_imu");
+  pdf.text(50, 779, 10, "Generated: " + generated_at);
+  pdf.text(50, 760, 10, "Camera topic: " + camera.topic);
+  pdf.text(50, 744, 10, "Resolution: " + std::to_string(camera.width) + " x " + std::to_string(camera.height));
+  pdf.text(50, 728, 10, "Model: " + camera.model + " / " + camera.distortion_model);
+
+  pdf.text(50, 695, 13, "Extrinsics T_cam_imu");
   for (int i = 0; i < 4; ++i) {
     std::ostringstream row;
     row << std::fixed << std::setprecision(8);
     row << "[ ";
     for (int j = 0; j < 4; ++j) row << std::setw(12) << result.T_cam_imu(i, j) << ' ';
     row << ']';
-    pdf.text(65, 690 - 16 * i, 9, row.str());
+    pdf.text(65, 675 - 16 * i, 9, row.str());
   }
-  pdf.text(50, 600, 13, "Timing and residuals");
-  pdf.text(65, 580, 10, "timeshift_cam_imu: " + number(result.timeshift_cam_imu * 1000.0, 6) + " ms");
-  pdf.text(65, 564, 10, "Reprojection RMSE: " + number(result.reprojection_rmse, 6) + " px");
-  pdf.text(65, 548, 10, "Mean / median / p95 / max: " + number(summary.mean, 4) + " / " +
-           number(summary.median, 4) + " / " + number(summary.p95, 4) + " / " + number(summary.max, 4) + " px");
-  pdf.text(65, 532, 10, "Frames / corners: " + std::to_string(frames.size()) + " / " + std::to_string(summary.count));
-  pdf.text(65, 516, 10, "Ceres iterations: " + std::to_string(result.iterations));
-  pdf.text(65, 500, 10, "Initial / final cost: " + number(result.initial_cost, 3) + " / " + number(result.final_cost, 3));
-  pdf.text(50, 455, 13, "Biases and gravity");
-  pdf.text(65, 435, 10, "Gyro bias: " + number(result.gyro_bias.x(), 8) + ", " + number(result.gyro_bias.y(), 8) + ", " + number(result.gyro_bias.z(), 8));
-  pdf.text(65, 419, 10, "Accel bias: " + number(result.accel_bias.x(), 8) + ", " + number(result.accel_bias.y(), 8) + ", " + number(result.accel_bias.z(), 8));
-  pdf.text(65, 403, 10, "Gravity: " + number(result.gravity.x(), 8) + ", " + number(result.gravity.y(), 8) + ", " + number(result.gravity.z(), 8));
 
-  pdf.page();
-  axes(pdf, 60, 470, 480, 260, "Reprojection error vs time", "time [s]", "px");
-  const double max_time = frames.empty() ? 1.0 : std::max(1e-9, frames.back().time_s);
-  double max_frame_error = 1e-9;
-  for (const auto& f : frames) max_frame_error = std::max(max_frame_error, f.max);
-  std::vector<std::pair<double, double>> time_points;
-  for (const auto& f : frames) {
-    time_points.push_back({60 + 480 * f.time_s / max_time, 470 + 260 * f.mean / max_frame_error});
-  }
-  pdf.polyline(time_points);
-  pdf.text(62, 738, 8, "Y max: " + number(max_frame_error, 3) + " px");
-  axes(pdf, 60, 110, 480, 260, "Mean reprojection error by retained frame", "frame index", "px");
-  std::vector<std::pair<double, double>> frame_points;
-  const double denom = frames.size() > 1 ? static_cast<double>(frames.size() - 1) : 1.0;
-  for (std::size_t i = 0; i < frames.size(); ++i) {
-    frame_points.push_back({60 + 480 * static_cast<double>(i) / denom, 110 + 260 * frames[i].mean / max_frame_error});
-  }
-  pdf.polyline(frame_points);
+  pdf.text(50, 585, 13, "Timing");
+  pdf.text(65, 565, 10, "timeshift_cam_imu: " + number(result.timeshift_cam_imu, 9) + " s");
+  pdf.text(65, 549, 10, "timeshift_cam_imu: " + number(result.timeshift_cam_imu * 1000.0, 6) + " ms");
 
-  pdf.page();
-  axes(pdf, 60, 470, 480, 260, "Histogram of corner reprojection errors", "error [px]", "count");
-  const auto norms = residual_norms(result);
-  constexpr int bins = 24;
-  std::array<int, bins> hist{};
-  const double hist_max = std::max(summary.max, 1e-9);
-  for (double value : norms) {
-    const int bin = std::min(bins - 1, static_cast<int>(std::floor(value / hist_max * bins)));
-    ++hist[bin];
-  }
-  const int max_bin = std::max(1, *std::max_element(hist.begin(), hist.end()));
-  for (int i = 0; i < bins; ++i) {
-    const double bw = 480.0 / bins;
-    const double bh = 260.0 * hist[i] / max_bin;
-    pdf.rect(60 + i * bw, 470, bw - 1, bh, 0.82);
-  }
-  pdf.text(62, 738, 8, "X max: " + number(hist_max, 3) + " px");
+  pdf.text(50, 515, 13, "Reprojection error [px]");
+  pdf.text(65, 495, 10, "RMSE: " + number(result.reprojection_rmse, 6));
+  pdf.text(65, 479, 10, "Mean: " + number(summary.mean, 6));
+  pdf.text(65, 463, 10, "Median: " + number(summary.median, 6));
+  pdf.text(65, 447, 10, "P95: " + number(summary.p95, 6));
+  pdf.text(65, 431, 10, "Max: " + number(summary.max, 6));
+  pdf.text(65, 415, 10, "Camera frames / corner residuals: " + std::to_string(frames.size()) +
+           " / " + std::to_string(summary.count));
 
-  pdf.text(60, 390, 12, "2D residual map in image coordinates");
-  constexpr int cols = 12;
-  constexpr int rows = 8;
-  std::array<double, cols * rows> sums{};
-  std::array<int, cols * rows> counts{};
-  for (const auto& r : result.reprojection_residuals) {
-    const int cx = std::clamp(static_cast<int>(r.observed_pixel.x() / std::max(1, camera.width) * cols), 0, cols - 1);
-    const int cy = std::clamp(static_cast<int>(r.observed_pixel.y() / std::max(1, camera.height) * rows), 0, rows - 1);
-    const int index = cy * cols + cx;
-    sums[index] += r.residual_pixel.norm();
-    ++counts[index];
-  }
-  double max_cell = 1e-9;
-  for (std::size_t i = 0; i < sums.size(); ++i) if (counts[i]) max_cell = std::max(max_cell, sums[i] / counts[i]);
-  const double x0 = 80, y0 = 95, w = 420, h = 260;
-  for (int y = 0; y < rows; ++y) {
-    for (int x = 0; x < cols; ++x) {
-      const int index = y * cols + x;
-      const double mean = counts[index] ? sums[index] / counts[index] : 0.0;
-      pdf.color_rect(x0 + x * w / cols, y0 + (rows - 1 - y) * h / rows,
-                     w / cols, h / rows, mean / max_cell);
-    }
-  }
-  pdf.text(80, 72, 8, "Darker red means higher mean corner reprojection error. Max cell mean: " + number(max_cell, 3) + " px");
+  pdf.text(50, 378, 13, "Optimization");
+  pdf.text(65, 358, 10, "Ceres iterations: " + std::to_string(result.iterations));
+  pdf.text(65, 342, 10, "Initial cost: " + number(result.initial_cost, 3));
+  pdf.text(65, 326, 10, "Final cost: " + number(result.final_cost, 3));
+
+  pdf.text(50, 289, 13, "Biases and gravity");
+  pdf.text(65, 269, 10, "Gyro bias: " + number(result.gyro_bias.x(), 8) + ", " +
+           number(result.gyro_bias.y(), 8) + ", " + number(result.gyro_bias.z(), 8));
+  pdf.text(65, 253, 10, "Accel bias: " + number(result.accel_bias.x(), 8) + ", " +
+           number(result.accel_bias.y(), 8) + ", " + number(result.accel_bias.z(), 8));
+  pdf.text(65, 237, 10, "Gravity: " + number(result.gravity.x(), 8) + ", " +
+           number(result.gravity.y(), 8) + ", " + number(result.gravity.z(), 8));
+
+  pdf.text(50, 195, 13, "Detailed files");
+  pdf.text(65, 175, 10, "residuals.csv: one row per AprilGrid corner residual");
+  pdf.text(65, 159, 10, "residual_summary.json: numeric summary and generated_at_utc");
   pdf.write();
 }
 } // namespace
@@ -307,8 +275,9 @@ void save_diagnostics_report(const std::string& directory, const CameraConfig& c
   const auto norms = residual_norms(result);
   const auto summary = summarize(norms);
   const auto frames = frame_summaries(result);
+  const auto generated_at = utc_time_minute();
   write_csv(root / "residuals.csv", result);
-  write_summary_json(root / "residual_summary.json", result, summary, frames);
-  draw_report(root / "calibration-report.pdf", camera, result, summary, frames);
+  write_summary_json(root / "residual_summary.json", result, summary, frames, generated_at);
+  draw_report(root / "calibration-report.pdf", camera, result, summary, frames, generated_at);
 }
 } // namespace kalibr2
