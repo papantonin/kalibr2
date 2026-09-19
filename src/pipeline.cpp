@@ -29,12 +29,16 @@ ExtractedData extract(FrameSource& source, const CameraConfig& camera,
   if(options.threads<1 || camera.width<=0 || camera.height<=0)
     throw std::runtime_error("Invalid pipeline dimensions or thread count");
   // Conservative allowance for a serialized color frame, decoded color/gray
-  // buffers and codec input. Admission takes place BEFORE the next frame read.
+  // buffers and codec input. When a budget is configured, admission takes
+  // place BEFORE the next frame read.
   const auto reservation=static_cast<std::size_t>(camera.width)*camera.height*16+2*1024*1024;
-  if(options.image_memory_bytes<reservation)
-    throw std::runtime_error("Image budget too small for one frame; need at least " +
-                             std::to_string((reservation+1048575)/1048576) + " MiB");
-  const auto tokens=std::min<std::size_t>(options.threads, options.image_memory_bytes/reservation);
+  auto tokens=static_cast<std::size_t>(options.threads);
+  if(options.image_memory_bytes>0) {
+    if(options.image_memory_bytes<reservation)
+      throw std::runtime_error("Image budget too small for one frame; need at least " +
+                               std::to_string((reservation+1048575)/1048576) + " MiB");
+    tokens=std::min<std::size_t>(tokens, options.image_memory_bytes/reservation);
+  }
   ExtractedData result;
   result.detector_backend=detector.backend;
   result.tag_border=detector.tag_border;

@@ -14,16 +14,18 @@ IMU samples enter the solver. The cache contains no pixels.
 
 ## Memory and parallelism
 
-The maximum number of images in flight is:
+By default, the maximum number of images in flight is `threads`. If
+`--image-memory-mib` is set, extraction uses:
 
 ```text
 min(threads, image_budget / (16 × width × height + 2 MiB))
 ```
 
-This conservative reservation covers pixel/encoded buffers, not total RSS.
-Bag indexes and chunks, codec and detector workspaces, observations, IMU samples,
-and factorization require additional memory. An image that cannot fit the budget
-is rejected before loading; PNG/JPEG dimensions are checked before decoding.
+This optional conservative reservation covers pixel/encoded buffers, not total
+RSS. Bag indexes and chunks, codec and detector workspaces, observations, IMU
+samples, and factorization require additional memory. If a configured budget
+cannot fit one image, extraction is rejected before loading; PNG/JPEG dimensions
+are checked before decoding.
 Input reading/decompression remains sequential, while detection is parallel.
 Image buffers are bounded, but batch calibration memory still grows with
 recording duration. No GPU backend is currently implemented.

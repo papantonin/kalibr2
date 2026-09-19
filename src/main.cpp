@@ -24,7 +24,7 @@ void help() {
 Required: --camera camchain.yaml --imu imu.yaml --target aprilgrid.yaml --output NEW_DIRECTORY
 Options:
   --threads N              CPU workers (default: hardware concurrency, capped at 8)
-  --image-memory-mib N     Pixel-buffer reservation budget (default: 512; NOT total RSS)
+  --image-memory-mib N     Optional pixel-buffer budget limiting images in flight
   --detector NAME          kalibr (default) or apriltag3
   --tag-border 1|2         2: original Kalibr boards; 1: standard AprilTag3 boards
   --decimate X             AprilTag3 quad-search decimation (default: 1; kalibr requires 1)
@@ -106,8 +106,10 @@ int main(int argc,char** argv) {
         throw std::runtime_error("Built without ROS2; rebuild with KALIBR2_WITH_ROS2=ON");
 #endif
       }
-      std::cerr << "Extracting AprilGrid using " << kalibr2::detector_name(detector.backend) << " with " << pipeline.threads << " workers, "
-                << pipeline.image_memory_bytes/1048576 << " MiB pixel-buffer budget...\n";
+      std::cerr << "Extracting AprilGrid using " << kalibr2::detector_name(detector.backend) << " with " << pipeline.threads << " workers";
+      if(pipeline.image_memory_bytes>0) std::cerr << ", " << pipeline.image_memory_bytes/1048576 << " MiB pixel-buffer budget";
+      else std::cerr << ", no pixel-buffer budget";
+      std::cerr << "...\n";
       data=kalibr2::extract(*source,camera,grid,detector,pipeline);
     }
     if(!std::filesystem::create_directories(output)) throw std::runtime_error("Unable to create output directory");

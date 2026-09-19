@@ -60,11 +60,13 @@ docker run --rm --user "$(id -u):$(id -g)" \
   kalibr2:dev /opt/kalibr2/bin/kalibr2 calibrate \
   --bag /data/recording \
   --camera /data/camchain.yaml --imu /data/imu.yaml --target /data/aprilgrid.yaml \
-  --output /results/run01 --threads 4 --image-memory-mib 512
+  --output /results/run01 --threads 4
 ```
 
-`--image-memory-mib` controls the image-buffer reservation budget, **not total
-process RAM**. Bag buffers, observations, IMU samples, and the solver require
+By default, Kalibr2 keeps up to `--threads` images in flight.
+`--image-memory-mib` is optional and can reduce that count on
+memory-constrained machines; it is **not total process RAM**. Bag buffers,
+observations, IMU samples, detector workspaces, and the solver require
 additional memory. `--tag-border 2` selects historical Kalibr targets; use `1`
 for standard AprilTag 3 targets. Keep `--decimate 1` for initial validation.
 The bundled historical Kalibr detector is the default. It processes the original
@@ -96,8 +98,8 @@ See [usage and installation](docs/usage.md) for ROS 1 conversion and local build
 ## Measurements so far
 
 On a synthetic 11 MP sequence, parallel extraction took **12.36 s versus
-23.46 s** with one worker, producing byte-identical caches. The 512 MiB image
-budget limited processing to two simultaneous images.
+23.46 s** with one worker, producing byte-identical caches. That historical benchmark used `--image-memory-mib 512`, which limited
+processing to two simultaneous images.
 
 A matched TUM VI rerun with the historical detector, using the recording
 referenced by DT-VI-Calib, measured:

@@ -33,11 +33,14 @@ int main() {
     cv::setNumThreads(1);
     kalibr2::CameraConfig c; c.width=64;c.height=48;c.intrinsics={100,100,32,24};
     kalibr2::GridConfig g{2,2,0.1,0.3};
-    kalibr2::PipelineOptions opts; opts.threads=4;opts.image_memory_bytes=3*1048576;
+    kalibr2::PipelineOptions opts; opts.threads=4;
     Source s;
     const auto extracted=kalibr2::extract(s,c,g,{},opts);
     require(extracted.frames==12 && extracted.detected_frames==0,"Frames lost or false detections");
-    require(extracted.max_in_flight==1,"Memory admission did not restrict concurrency");
+    require(extracted.max_in_flight==4,"Default admission should follow the thread count");
+    Source limited;opts.image_memory_bytes=3*1048576;
+    const auto memory_limited=kalibr2::extract(limited,c,g,{},opts);
+    require(memory_limited.max_in_flight==1,"Configured memory admission did not restrict concurrency");
     require(extracted.imu.size()==1,"IMU lost");
     Source unread;opts.image_memory_bytes=1;
     rejects([&]{kalibr2::extract(unread,c,g,{},opts);});

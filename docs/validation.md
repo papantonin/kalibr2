@@ -9,13 +9,14 @@ Eigen 3.4.0, oneTBB 2021.11, GCC 13.3 Release build.
 ## High-resolution detection
 
 194 PNG images at 3840 × 2880 (11.06 MP), a 3×2 target, the AprilTag 3 backend,
-`tag_border=2`, `decimate=1`, and a 512 MiB buffer budget. Runs were
+`tag_border=2`, `decimate=1`, and an explicit `--image-memory-mib 512`
+buffer budget. Runs were
 performed sequentially, once per configuration, with no concurrent build. The
 second run may benefit from filesystem caching; repeat in alternating order.
 
 | Setting / result | 1 requested thread | 4 requested threads |
 |---|---:|---:|
-| Effective workers and maximum images in flight | 1 | 2 (memory budget) |
+| Effective workers and maximum images in flight | 1 | 2 (explicit memory budget) |
 | Extraction time | 23.4583 s | 12.3642 s |
 | Throughput | 8.27 images/s | 15.69 images/s |
 | Peak RSS through the end of extraction | 186,152 KiB ≈ 182 MiB | 314,776 KiB ≈ 307 MiB |
@@ -45,7 +46,7 @@ build/kalibr2 extract --dataset build/benchmark-11mp \
 
 Output directories must be new. Read `extraction.json` for elapsed time and
 `peak_rss_kib_at_extraction`: the maximum process RSS up to that point, not a
-total-memory cap guaranteed by the image budget.
+total-memory cap guaranteed by the optional image budget.
 
 ## End-to-end image pipeline
 

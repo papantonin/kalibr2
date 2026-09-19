@@ -7,7 +7,7 @@
 namespace kalibr2 {
 struct PipelineOptions {
   int threads{1};
-  std::size_t image_memory_bytes{512ULL*1024*1024};
+  std::size_t image_memory_bytes{};
 };
 struct ExtractedData {
   std::vector<Observation> observations;
@@ -20,8 +20,10 @@ struct ExtractedData {
   double decimate{1.0};
   bool from_cache{};
 };
-// The budget reserves decoded + encoded pixel buffers; codec/detector workspace,
-// bag storage buffers, observations, IMU and solver allocations are additional.
+// By default, extraction keeps up to `threads` images in flight. When
+// image_memory_bytes is non-zero, it reserves decoded + encoded pixel buffers
+// and can reduce in-flight images; codec/detector workspace, bag storage
+// buffers, observations, IMU and solver allocations are additional.
 ExtractedData extract(FrameSource& source, const CameraConfig& camera,
                       const GridConfig& grid, const DetectorOptions& detector,
                       const PipelineOptions& options);
