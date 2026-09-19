@@ -82,6 +82,7 @@ Each run requires a new output directory and saves:
 - `observations.cache` and `extraction.json`: reusable observations and extraction metrics.
 - `camera-input.yaml`, `imu-input.yaml`, `target-input.yaml`: input configurations.
 - `camchain-imucam.yaml` and `solver.txt`: calibration and solver diagnostics on success.
+- `calibration-report.pdf`, `residuals.csv`, `residual_summary.json`: PDF report and detailed reprojection residual diagnostics.
 
 Use `extract` instead of `calibrate` to save observations only. To rerun the
 solver from a cache, with a local installation:

@@ -49,6 +49,12 @@ struct SolverOptions {
   double max_time_offset{0.05};
   double pixel_sigma{1.0};
 };
+struct ReprojectionResidual {
+  std::int64_t timestamp_ns{};
+  int frame_index{}, tag_id{}, corner_id{};
+  Eigen::Vector2d observed_pixel{Eigen::Vector2d::Zero()};
+  Eigen::Vector2d residual_pixel{Eigen::Vector2d::Zero()};
+};
 struct CalibrationResult {
   Eigen::Matrix4d T_cam_imu{Eigen::Matrix4d::Identity()};
   double timeshift_cam_imu{}; // t_imu = t_cam + timeshift_cam_imu
@@ -56,6 +62,7 @@ struct CalibrationResult {
   Eigen::Vector3d accel_bias{Eigen::Vector3d::Zero()};
   Eigen::Vector3d gravity{Eigen::Vector3d::Zero()};
   double initial_cost{}, final_cost{}, reprojection_rmse{};
+  std::vector<ReprojectionResidual> reprojection_residuals;
   int iterations{};
   bool converged{};
   std::string report;

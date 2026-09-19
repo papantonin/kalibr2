@@ -525,13 +525,22 @@ CalibrationResult calibrate(const std::vector<Observation>& observations,
   double squared_pixels = 0;
   std::size_t corner_count = 0;
   bool valid_projection = true;
+  int frame_index = 0;
   for (const auto& entry : camera_factors) {
     const auto& factor = entry.first;
     std::vector<double> residual(2 * factor.observation->corners.size());
     std::vector<const double*> blocks(entry.second.begin(), entry.second.end());
     if (!factor(blocks.data(), residual.data())) { valid_projection = false; break; }
-    for (double value : residual) squared_pixels += value * value * options.pixel_sigma * options.pixel_sigma;
+    for (std::size_t i = 0; i < factor.observation->corners.size(); ++i) {
+      const double rx = residual[2 * i] * options.pixel_sigma;
+      const double ry = residual[2 * i + 1] * options.pixel_sigma;
+      squared_pixels += rx * rx + ry * ry;
+      const auto& corner = factor.observation->corners[i];
+      result.reprojection_residuals.push_back({factor.observation->timestamp_ns, frame_index,
+          corner.tag_id, corner.corner_id, corner.pixel, Eigen::Vector2d(rx, ry)});
+    }
     corner_count += factor.observation->corners.size();
+    ++frame_index;
   }
   result.reprojection_rmse = valid_projection && corner_count ?
       std::sqrt(squared_pixels / static_cast<double>(corner_count)) :

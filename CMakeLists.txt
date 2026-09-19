@@ -15,7 +15,7 @@ pkg_check_modules(APRILTAG REQUIRED IMPORTED_TARGET apriltag)
 
 add_subdirectory(third_party/ethz_apriltag2)
 
-add_library(kalibr2_core src/config.cpp src/directory_source.cpp src/detector.cpp src/solver.cpp src/pipeline.cpp)
+add_library(kalibr2_core src/config.cpp src/directory_source.cpp src/detector.cpp src/solver.cpp src/pipeline.cpp src/report.cpp)
 target_include_directories(kalibr2_core PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include> ${OpenCV_INCLUDE_DIRS})
 target_link_libraries(kalibr2_core PUBLIC Eigen3::Eigen Ceres::ceres ${OpenCV_LIBS} TBB::tbb yaml-cpp PkgConfig::APRILTAG)
 target_link_libraries(kalibr2_core PRIVATE kalibr2_ethz_apriltag)

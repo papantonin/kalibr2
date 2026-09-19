@@ -1,4 +1,5 @@
 #include "kalibr2/config.hpp"
+#include "kalibr2/report.hpp"
 #include <yaml-cpp/yaml.h>
 #include <cmath>
 #include <filesystem>
@@ -91,5 +92,6 @@ void save_result(const std::string& directory, const CameraConfig& c, const Cali
          << "\nAccelerometer bias: " << r.accel_bias.transpose()
          << "\nGravity: " << r.gravity.transpose() << '\n';
   if(!report) throw std::runtime_error("Unable to write solver report");
+  save_diagnostics_report(directory, c, r);
 }
 } // namespace kalibr2
