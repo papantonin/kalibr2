@@ -53,6 +53,19 @@ std::string utc_time_minute() {
   out << std::put_time(&utc, "%Y-%m-%d %H:%M UTC");
   return out.str();
 }
+std::string utc_stamp_minute() {
+  const auto now = std::chrono::system_clock::now();
+  const std::time_t time = std::chrono::system_clock::to_time_t(now);
+  std::tm utc{};
+#if defined(_WIN32)
+  gmtime_s(&utc, &time);
+#else
+  if (const std::tm* value = std::gmtime(&time)) utc = *value;
+#endif
+  std::ostringstream out;
+  out << std::put_time(&utc, "%Y%m%d_%H%M_UTC");
+  return out.str();
+}
 std::string pdf_escape(const std::string& text) {
   std::string out;
   out.reserve(text.size());
@@ -264,20 +277,24 @@ void draw_report(const std::filesystem::path& path, const CameraConfig& camera,
            number(result.gravity.y(), 8) + ", " + number(result.gravity.z(), 8));
 
   pdf.text(50, 195, 13, "Detailed files");
-  pdf.text(65, 175, 10, "residuals.csv: one row per AprilGrid corner residual");
-  pdf.text(65, 159, 10, "residual_summary.json: numeric summary and generated_at_utc");
+  pdf.text(65, 175, 10, "cache/residuals.csv: one row per AprilGrid corner residual");
+  pdf.text(65, 159, 10, "cache/residual_summary.json: numeric summary and generated_at_utc");
   pdf.write();
 }
 } // namespace
 void save_diagnostics_report(const std::string& directory, const CameraConfig& camera,
                              const CalibrationResult& result) {
   const auto root = std::filesystem::path(directory);
+  const auto cache = root / "cache";
+  if(!std::filesystem::exists(cache) && !std::filesystem::create_directories(cache))
+    throw std::runtime_error("Unable to create cache directory");
   const auto norms = residual_norms(result);
   const auto summary = summarize(norms);
   const auto frames = frame_summaries(result);
   const auto generated_at = utc_time_minute();
-  write_csv(root / "residuals.csv", result);
-  write_summary_json(root / "residual_summary.json", result, summary, frames, generated_at);
-  draw_report(root / "calibration-report.pdf", camera, result, summary, frames, generated_at);
+  const auto stamp = utc_stamp_minute();
+  write_csv(cache / "residuals.csv", result);
+  write_summary_json(cache / "residual_summary.json", result, summary, frames, generated_at);
+  draw_report(root / ("calibration-report-" + stamp + ".pdf"), camera, result, summary, frames, generated_at);
 }
 } // namespace kalibr2

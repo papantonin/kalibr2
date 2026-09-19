@@ -36,8 +36,8 @@ Inputs: one global-shutter camera (pinhole-radtan or pinhole-equidistant), one I
 fixed camera intrinsics, stationary AprilGrid. Directory: cam0/<nanoseconds>.png
 or .jpg, imu0.csv: timestamp_ns,wx,wy,wz,ax,ay,az (SI units).
 Convert ROS1 bags using rosbags-convert before --bag (see README).
-Output: observations.cache, extraction.json; calibrate also writes Kalibr-compatible
-camchain-imucam.yaml and solver.txt on convergence. Existing directories are refused.
+Output: cache/observations.cache and cache/extraction.json; calibrate also writes
+Kalibr-compatible camchain-imucam.yaml, solver.txt and a timestamped PDF report. Existing directories are refused.
 Prototype differences from Kalibr: cubic Lie splines, constant IMU biases.
 )";
 }
@@ -113,8 +113,10 @@ int main(int argc,char** argv) {
       data=kalibr2::extract(*source,camera,grid,detector,pipeline);
     }
     if(!std::filesystem::create_directories(output)) throw std::runtime_error("Unable to create output directory");
-    kalibr2::write_cache((output/"observations.cache").string(),data,camera,grid);
-    std::ofstream stats(output/"extraction.json");
+    const auto cache_dir = output / "cache";
+    if(!std::filesystem::create_directories(cache_dir)) throw std::runtime_error("Unable to create cache directory");
+    kalibr2::write_cache((cache_dir/"observations.cache").string(),data,camera,grid);
+    std::ofstream stats(cache_dir/"extraction.json");
     rusage usage{}; getrusage(RUSAGE_SELF,&usage);
     stats << "{\n  \"frames\": " << data.frames << ",\n  \"detected_frames\": " << data.detected_frames
           << ",\n  \"imu_samples\": " << data.imu.size() << ",\n  \"max_in_flight\": " << data.max_in_flight
@@ -125,7 +127,7 @@ int main(int argc,char** argv) {
           << ",\n  \"from_cache\": " << (data.from_cache ? "true" : "false") << "\n}\n";
     if(!stats) throw std::runtime_error("Unable to write extraction statistics");
     for(const auto* key:{"--camera","--imu","--target"})
-      std::filesystem::copy_file(args.at(key),output/(std::string(key+2)+"-input.yaml"));
+      std::filesystem::copy_file(args.at(key),cache_dir/(std::string(key+2)+"-input.yaml"));
     std::cerr << "Detected target in " << data.detected_frames << '/' << data.frames << " frames; "
               << data.imu.size() << " IMU samples; " << data.elapsed_seconds << " s.\n";
     if(data.observations.empty()) throw std::runtime_error("No valid AprilGrid: check target dimensions, tag-border, focus and visibility");

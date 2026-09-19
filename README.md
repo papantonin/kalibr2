@@ -79,16 +79,16 @@ Measure the printed target: `tagSize` is in meters and `tagSpacing` is a ratio.
 
 Each run requires a new output directory and saves:
 
-- `observations.cache` and `extraction.json`: reusable observations and extraction metrics.
-- `camera-input.yaml`, `imu-input.yaml`, `target-input.yaml`: input configurations.
-- `camchain-imucam.yaml` and `solver.txt`: calibration and solver diagnostics on success.
-- `calibration-report.pdf`, `residuals.csv`, `residual_summary.json`: single-page PDF report and detailed reprojection residual diagnostics.
+- `cache/observations.cache` and `cache/extraction.json`: reusable observations and extraction metrics.
+- `cache/camera-input.yaml`, `cache/imu-input.yaml`, `cache/target-input.yaml`: input configurations.
+- `camchain-imucam.yaml`, `solver.txt`, and `calibration-report-YYYYMMDD_HHMM_UTC.pdf`: calibration results on success.
+- `cache/residuals.csv`, `cache/residual_summary.json`: detailed reprojection residual diagnostics.
 
 Use `extract` instead of `calibrate` to save observations only. To rerun the
 solver from a cache, with a local installation:
 
 ```bash
-kalibr2 calibrate --cache results/run01/observations.cache \
+kalibr2 calibrate --cache results/run01/cache/observations.cache \
   --camera data/camchain.yaml --imu data/imu.yaml --target data/aprilgrid.yaml \
   --output results/run02 --threads 4 --max-time-offset 0.1
 ```

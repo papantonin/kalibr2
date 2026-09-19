@@ -79,10 +79,12 @@ host. Use `extract` first and reuse its cache for calibration.
 ## Output and cache reuse
 
 The output directory must not already exist. Extraction saves full-precision
-corners and IMU samples in `observations.cache`, metrics in `extraction.json`,
-and copies of the three input YAML files. Successful calibration additionally
-exports `camchain-imucam.yaml`, `solver.txt`, a single-page
-`calibration-report.pdf`, `residuals.csv`, and `residual_summary.json`.
+corners and IMU samples in `cache/observations.cache`, metrics in
+`cache/extraction.json`, and copies of the three input YAML files under
+`cache/`. Successful calibration additionally exports `camchain-imucam.yaml`,
+`solver.txt`, and a single-page timestamped
+`calibration-report-YYYYMMDD_HHMM_UTC.pdf`; detailed residual diagnostics are
+written to `cache/residuals.csv` and `cache/residual_summary.json`.
 
 The cache remains available if a later optimization fails. Reuse it with
 `calibrate --cache FILE` and a new output directory, as shown in the

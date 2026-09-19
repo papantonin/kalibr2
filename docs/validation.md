@@ -44,7 +44,7 @@ build/kalibr2 extract --dataset build/benchmark-11mp \
   --threads 4 --image-memory-mib 512
 ```
 
-Output directories must be new. Read `extraction.json` for elapsed time and
+Output directories must be new. Read `cache/extraction.json` for elapsed time and
 `peak_rss_kib_at_extraction`: the maximum process RSS up to that point, not a
 total-memory cap guaranteed by the optional image budget.
 
