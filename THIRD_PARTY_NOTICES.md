@@ -10,7 +10,10 @@ ETH Zurich. Its equations and conventions build on the following research:
 - Christiane Sommer et al., *Efficient Derivative Computation for Cumulative
   B-Splines on Lie Groups*, CVPR 2020.
 
-The core is reimplemented here; no submodule of Kalibr's aslam engine is bundled.
+The calibration solver is reimplemented here; no submodule of Kalibr's aslam engine is bundled.
+The historical AprilTag detector is bundled in `third_party/ethz_apriltag2`,
+with its upstream source notices, license and documented local adaptations.
+Its upstream Kalibr revision is `1f60227442d25e36365ef5f72cd80b9666d73467`.
 The six reference tag codewords in `tests/test_detector.cpp` come from Kalibr's
 target generator and are derived from AprilTags. Sources:
 [Kalibr](https://github.com/ethz-asl/kalibr),

@@ -51,6 +51,31 @@ The package includes ament integration for `colcon build`. The core also builds
 with `-DKALIBR2_WITH_ROS2=OFF`, retaining directory and cache input.
 The Dockerfile accepts a `ROS_DISTRO` argument, but only Jazzy has been tested.
 
+## Detector selection
+
+`--detector kalibr` is the default and selects the historical Kalibr detector
+bundled with this project, without ROS 1 dependencies. `--detector apriltag3`
+selects the optional AprilTag 3 backend. Both operate directly on grayscale
+images, without undistortion, and use the same Kalibr2 filtering and subpixel
+refinement. This does not reproduce the entire Kalibr observation/pose outlier
+pipeline. The historical backend requires `--decimate 1`. Detector workspaces
+are outside `--image-memory-mib`.
+
+New V2 caches record the backend. Older V1 caches are still readable and are
+identified as AprilTag 3. Detector options cannot be changed with `--cache`;
+extract from the original images to change detectors.
+
+## High-resolution recordings
+
+The automatic worker count follows hardware concurrency but is capped at eight.
+Pass `--threads N` explicitly to use more. Effective concurrency is also limited
+by the image budget described in the [architecture document](architecture.md).
+A UHD 3840 × 2160 frame reserves about 129 MiB, so the default 512 MiB budget
+admits only three frames. On a 12-thread machine with sufficient RAM, start with
+`--threads 6 --image-memory-mib 2048`, measure extraction RSS and elapsed time,
+then compare `--threads 12`. Detector workspaces are outside this budget; it is
+not a total-memory limit. Use `extract` first and reuse its cache for calibration.
+
 ## Output and cache reuse
 
 The output directory must not already exist. Extraction saves full-precision

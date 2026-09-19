@@ -6,7 +6,14 @@
 
 namespace kalibr2 {
 
+enum class DetectorBackend { AprilTag3, Kalibr };
+std::string detector_name(DetectorBackend backend);
+DetectorBackend parse_detector_backend(const std::string& name);
+
 struct DetectorOptions {
+  // The historical Kalibr detector is the validated default for AprilGrid
+  // calibration. AprilTag 3 remains available as an explicit alternative.
+  DetectorBackend backend{DetectorBackend::Kalibr};
   // Only quad search is decimated; decoding and corner refinement use the
   // original image. One preserves all available image information.
   double quad_decimate{1.0};
@@ -20,7 +27,7 @@ struct DetectorOptions {
 
 // A detector is deliberately single-threaded and not reentrant. The streaming
 // pipeline should keep one instance per TBB worker, avoiding nested thread pools.
-// No input image is retained or copied; only the detected corners survive detect.
+// No input image is retained; the historical backend allocates internal image buffers.
 class AprilGridDetector {
 public:
   explicit AprilGridDetector(GridConfig grid, DetectorOptions options = {});

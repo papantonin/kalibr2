@@ -25,8 +25,9 @@ Required: --camera camchain.yaml --imu imu.yaml --target aprilgrid.yaml --output
 Options:
   --threads N              CPU workers (default: hardware concurrency, capped at 8)
   --image-memory-mib N     Pixel-buffer reservation budget (default: 512; NOT total RSS)
+  --detector NAME          kalibr (default) or apriltag3
   --tag-border 1|2         2: original Kalibr boards; 1: standard AprilTag3 boards
-  --decimate X             Quad-search decimation (default: 1; full-resolution corners)
+  --decimate X             AprilTag3 quad-search decimation (default: 1; kalibr requires 1)
   --knot-spacing SEC       Cubic spline knot spacing (default: 0.05)
   --max-time-offset SEC    Absolute camera-to-IMU offset bound (default: 0.05)
   --max-iterations N       Ceres iteration limit (default: 100)
@@ -58,7 +59,7 @@ int main(int argc,char** argv) {
     if(command!="extract" && command!="calibrate") throw std::runtime_error("Unknown command: "+command);
     std::map<std::string,std::string> args;
     const std::set<std::string> valid={"--bag","--dataset","--cache","--camera","--imu","--target","--output",
-      "--threads","--image-memory-mib","--tag-border","--decimate","--knot-spacing","--max-time-offset","--max-iterations"};
+      "--detector","--threads","--image-memory-mib","--tag-border","--decimate","--knot-spacing","--max-time-offset","--max-iterations"};
     for(int i=2;i<argc;++i) {
       const std::string key=argv[i];
       if(key=="--help") { help(); return 0; }
@@ -70,7 +71,7 @@ int main(int argc,char** argv) {
     if(args.contains("--bag")+args.contains("--dataset")+args.contains("--cache")!=1)
       throw std::runtime_error("Select exactly one input: --bag, --dataset or --cache");
     if(command=="extract" && args.contains("--cache")) throw std::runtime_error("extract requires image data");
-    if(args.contains("--cache") && (args.contains("--tag-border") || args.contains("--decimate")))
+    if(args.contains("--cache") && (args.contains("--detector") || args.contains("--tag-border") || args.contains("--decimate")))
       throw std::runtime_error("Detector settings cannot change cached detections; run extract again");
     const auto camera=kalibr2::load_camera(args.at("--camera"));
     const auto imu=kalibr2::load_imu(args.at("--imu"));
@@ -80,8 +81,11 @@ int main(int argc,char** argv) {
     if(args.contains("--threads")) pipeline.threads=integer(args.at("--threads"));
     if(args.contains("--image-memory-mib")) pipeline.image_memory_bytes=static_cast<std::size_t>(integer(args.at("--image-memory-mib")))*1048576;
     kalibr2::DetectorOptions detector;
+    if(args.contains("--detector")) detector.backend=kalibr2::parse_detector_backend(args.at("--detector"));
     if(args.contains("--tag-border")) detector.tag_border=integer(args.at("--tag-border"));
     if(args.contains("--decimate")) detector.quad_decimate=number(args.at("--decimate"));
+    if(detector.backend==kalibr2::DetectorBackend::Kalibr && detector.quad_decimate!=1.0)
+      throw std::runtime_error("--detector kalibr requires --decimate 1");
     kalibr2::SolverOptions solver; solver.threads=pipeline.threads;
     if(args.contains("--knot-spacing")) solver.knot_spacing=number(args.at("--knot-spacing"));
     if(args.contains("--max-time-offset")) solver.max_time_offset=number(args.at("--max-time-offset"));
@@ -102,7 +106,7 @@ int main(int argc,char** argv) {
         throw std::runtime_error("Built without ROS2; rebuild with KALIBR2_WITH_ROS2=ON");
 #endif
       }
-      std::cerr << "Extracting AprilGrid with " << pipeline.threads << " workers, "
+      std::cerr << "Extracting AprilGrid using " << kalibr2::detector_name(detector.backend) << " with " << pipeline.threads << " workers, "
                 << pipeline.image_memory_bytes/1048576 << " MiB pixel-buffer budget...\n";
       data=kalibr2::extract(*source,camera,grid,detector,pipeline);
     }
@@ -113,6 +117,7 @@ int main(int argc,char** argv) {
     stats << "{\n  \"frames\": " << data.frames << ",\n  \"detected_frames\": " << data.detected_frames
           << ",\n  \"imu_samples\": " << data.imu.size() << ",\n  \"max_in_flight\": " << data.max_in_flight
           << ",\n  \"elapsed_seconds\": " << data.elapsed_seconds << ",\n  \"tag_border\": " << data.tag_border
+          << ",\n  \"detector\": \"" << kalibr2::detector_name(data.detector_backend) << "\""
           << ",\n  \"decimate\": " << data.decimate
           << ",\n  \"peak_rss_kib_at_extraction\": " << usage.ru_maxrss
           << ",\n  \"from_cache\": " << (data.from_cache ? "true" : "false") << "\n}\n";

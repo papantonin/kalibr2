@@ -8,10 +8,10 @@ Eigen 3.4.0, oneTBB 2021.11, GCC 13.3 Release build.
 
 ## High-resolution detection
 
-194 PNG images at 3840 × 2880 (11.06 MP), a 3×2 target, `tag_border=2`,
-`decimate=1`, and a 512 MiB buffer budget. Runs were performed sequentially,
-once per configuration, with no concurrent build. The second run may benefit
-from filesystem caching; repeat in alternating order before generalizing.
+194 PNG images at 3840 × 2880 (11.06 MP), a 3×2 target, the AprilTag 3 backend,
+`tag_border=2`, `decimate=1`, and a 512 MiB buffer budget. Runs were
+performed sequentially, once per configuration, with no concurrent build. The
+second run may benefit from filesystem caching; repeat in alternating order.
 
 | Setting / result | 1 requested thread | 4 requested threads |
 |---|---:|---:|
@@ -34,11 +34,13 @@ build/test_solver --write-fixture build/benchmark-11mp 3
 build/kalibr2 extract --dataset build/benchmark-11mp \
   --camera build/benchmark-11mp/camera.yaml --imu build/benchmark-11mp/imu.yaml \
   --target build/benchmark-11mp/target.yaml \
-  --output build/benchmark-11mp-threads-1 --threads 1 --image-memory-mib 512
+  --output build/benchmark-11mp-threads-1 --detector apriltag3 \
+  --threads 1 --image-memory-mib 512
 build/kalibr2 extract --dataset build/benchmark-11mp \
   --camera build/benchmark-11mp/camera.yaml --imu build/benchmark-11mp/imu.yaml \
   --target build/benchmark-11mp/target.yaml \
-  --output build/benchmark-11mp-threads-4 --threads 4 --image-memory-mib 512
+  --output build/benchmark-11mp-threads-4 --detector apriltag3 \
+  --threads 4 --image-memory-mib 512
 ```
 
 Output directories must be new. Read `extraction.json` for elapsed time and

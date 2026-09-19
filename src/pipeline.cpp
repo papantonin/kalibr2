@@ -14,9 +14,9 @@
 
 namespace kalibr2 {
 namespace {
-std::string signature(const CameraConfig& c, const GridConfig& g) {
+std::string signature(const CameraConfig& c, const GridConfig& g, int version=2) {
   std::ostringstream out; out << std::setprecision(17);
-  out << "KALIBR2_CACHE_V1 " << c.width << ' ' << c.height << ' ' << c.model << ' ' << c.distortion_model;
+  out << "KALIBR2_CACHE_V" << version << ' ' << c.width << ' ' << c.height << ' ' << c.model << ' ' << c.distortion_model;
   for(double v:c.intrinsics) out << ' ' << v;
   for(double v:c.distortion) out << ' ' << v;
   out << ' ' << g.rows << ' ' << g.cols << ' ' << g.tag_size << ' ' << g.tag_spacing;
@@ -36,6 +36,7 @@ ExtractedData extract(FrameSource& source, const CameraConfig& camera,
                              std::to_string((reservation+1048575)/1048576) + " MiB");
   const auto tokens=std::min<std::size_t>(options.threads, options.image_memory_bytes/reservation);
   ExtractedData result;
+  result.detector_backend=detector.backend;
   result.tag_border=detector.tag_border;
   result.decimate=detector.quad_decimate;
   result.max_in_flight=tokens;
@@ -80,7 +81,7 @@ void write_cache(const std::string& path, const ExtractedData& d,
                  const CameraConfig& camera, const GridConfig& grid) {
   std::ofstream out(path);
   out << std::setprecision(17) << signature(camera,grid) << '\n';
-  out << d.tag_border << ' ' << d.decimate << '\n';
+  out << detector_name(d.detector_backend) << ' ' << d.tag_border << ' ' << d.decimate << '\n';
   out << d.frames << ' ' << d.observations.size() << ' ' << d.imu.size() << '\n';
   for(const auto& o:d.observations) {
     out << o.timestamp_ns << ' ' << o.corners.size() << '\n';
@@ -93,11 +94,19 @@ void write_cache(const std::string& path, const ExtractedData& d,
 ExtractedData read_cache(const std::string& path, const CameraConfig& camera,
                          const GridConfig& grid) {
   std::ifstream in(path); std::string line; std::getline(in,line);
-  if(line!=signature(camera,grid)) throw std::runtime_error("Cache version, camera or AprilGrid differs from configuration");
+  const bool legacy=line==signature(camera,grid,1);
+  if(!legacy && line!=signature(camera,grid)) throw std::runtime_error("Cache version, camera or AprilGrid differs from configuration");
   ExtractedData d; std::size_t no{},ni{};
+  if(!legacy) {
+    std::string backend;
+    if(!(in>>backend)) throw std::runtime_error("Missing cached detector backend");
+    d.detector_backend=parse_detector_backend(backend);
+  }
   if(!(in>>d.tag_border>>d.decimate) || (d.tag_border!=1 && d.tag_border!=2) ||
      !std::isfinite(d.decimate) || d.decimate<1 || d.decimate>8)
     throw std::runtime_error("Invalid cached detector settings");
+  if(d.detector_backend==DetectorBackend::Kalibr && d.decimate!=1.0)
+    throw std::runtime_error("Kalibr cache cannot have decimation");
   d.from_cache=true;
   if(!(in>>d.frames>>no>>ni) || no>d.frames || ni==0) throw std::runtime_error("Invalid cache counts");
   auto stamp=[](std::int64_t t,std::int64_t previous) {

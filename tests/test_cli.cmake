@@ -13,9 +13,32 @@ run("${CLI}" calibrate --dataset "${root}/dataset" ${config} --output "${root}/f
 run("${GENERATOR}" --verify-export "${root}/fit/camchain-imucam.yaml")
 run("${CLI}" calibrate --cache "${root}/fit/observations.cache" ${config} --output "${root}/cached" --threads 2 --max-time-offset 0.08 --knot-spacing 0.075)
 run("${GENERATOR}" --verify-export "${root}/cached/camchain-imucam.yaml")
+file(READ "${root}/cached/extraction.json" default_metadata)
+string(JSON default_backend GET "${default_metadata}" detector)
+if(NOT default_backend STREQUAL "kalibr")
+  message(FATAL_ERROR "The default detector is not the historical Kalibr backend")
+endif()
 # Existing results must never be silently replaced.
 execute_process(COMMAND "${CLI}" extract --dataset "${root}/dataset" ${config} --output "${root}/fit"
                 RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
 if(status EQUAL 0)
   message(FATAL_ERROR "CLI unexpectedly overwrote an existing result directory")
 endif()
+
+# Exercise the optional detector through calibration and cache reuse.
+run("${CLI}" calibrate --dataset "${root}/dataset" ${config} --detector apriltag3 --output "${root}/apriltag3" --threads 2 --max-time-offset 0.08 --knot-spacing 0.075)
+run("${GENERATOR}" --verify-export "${root}/apriltag3/camchain-imucam.yaml")
+run("${CLI}" calibrate --cache "${root}/apriltag3/observations.cache" ${config} --output "${root}/apriltag3-cached" --threads 2 --max-time-offset 0.08 --knot-spacing 0.075)
+run("${GENERATOR}" --verify-export "${root}/apriltag3-cached/camchain-imucam.yaml")
+file(READ "${root}/apriltag3-cached/extraction.json" metadata)
+string(JSON backend GET "${metadata}" detector)
+if(NOT backend STREQUAL "apriltag3")
+  message(FATAL_ERROR "AprilTag 3 detector identity lost when reusing the cache")
+endif()
+foreach(extra "--detector;apriltag3" "--tag-border;1" "--decimate;2")
+  execute_process(COMMAND "${CLI}" calibrate --cache "${root}/apriltag3/observations.cache" ${config} ${extra} --output "${root}/invalid-cache"
+                  RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+  if(status EQUAL 0)
+    message(FATAL_ERROR "CLI allowed detector settings to override cached observations")
+  endif()
+endforeach()

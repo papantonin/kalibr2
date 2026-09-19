@@ -4,6 +4,7 @@
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
+#include <sstream>
 
 namespace {
 void require(bool value,const char* message) { if(!value) throw std::runtime_error(message); }
@@ -50,6 +51,25 @@ int main() {
     require(roundtrip.observations.at(0).timestamp_ns==o.timestamp_ns,"Epoch precision lost");
     require((roundtrip.observations[0].corners[0].point-o.corners[0].point).norm()<1e-14,"Corner geometry changed");
     require((roundtrip.imu[0].gyro-d.imu[0].gyro).norm()==0,"IMU cache changed");
+    require(roundtrip.detector_backend==kalibr2::DetectorBackend::Kalibr,"Default backend lost");
+    d.detector_backend=kalibr2::DetectorBackend::AprilTag3;
+    kalibr2::write_cache(path.string(),d,c,g);
+    require(kalibr2::read_cache(path.string(),c,g).detector_backend==kalibr2::DetectorBackend::AprilTag3,
+            "AprilTag 3 backend lost in cache");
+    // Old V1 caches contain only AprilTag3 observations, without a backend token.
+    std::ifstream cache(path); std::ostringstream contents; contents << cache.rdbuf(); cache.close();
+    auto old=contents.str();
+    old.replace(old.find("KALIBR2_CACHE_V2"),std::string("KALIBR2_CACHE_V2").size(),"KALIBR2_CACHE_V1");
+    old.erase(old.find("apriltag3 "),10);
+    { std::ofstream legacy(path); legacy << old; }
+    const auto v1=kalibr2::read_cache(path.string(),c,g);
+    require(v1.detector_backend==kalibr2::DetectorBackend::AprilTag3 && v1.observations.size()==1,
+            "V1 cache compatibility broken");
+    auto corrupt_backend=contents.str();
+    corrupt_backend.replace(corrupt_backend.find("apriltag3 "),9,"unknown");
+    { std::ofstream invalid(path); invalid << corrupt_backend; }
+    rejects([&]{kalibr2::read_cache(path.string(),c,g);});
+    kalibr2::write_cache(path.string(),d,c,g);
     auto other=c; other.intrinsics[0]+=1;
     rejects([&]{kalibr2::read_cache(path.string(),other,g);});
     std::ofstream corrupt(path,std::ios::app); corrupt << "garbage";corrupt.close();

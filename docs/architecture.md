@@ -5,7 +5,11 @@ computation: `DirectorySource` and `RosbagSource` supply a grayscale image and
 its integer nanosecond timestamp. A three-stage oneTBB pipeline performs ordered
 reading, parallel detection, and ordered collection with bounded images in
 flight. Each worker owns its AprilTag family and detector to avoid sharing
-mutable lookup tables. Pixels are released after detection; only corners and
+mutable lookup tables. The historical Kalibr backend is the default; AprilTag 3
+is selected explicitly with `--detector apriltag3`. The historical detector is
+bundled without ROS 1, with per-thread counters.
+Both backends operate on distorted grayscale input and share Kalibr2 filters and
+corner refinement. Pixels are released after detection; only corners and
 IMU samples enter the solver. The cache contains no pixels.
 
 ## Memory and parallelism
@@ -102,7 +106,7 @@ time and peak memory with and without an observation cache. Compare repeated
 runs with 1/2/4/8 workers and native/high-resolution images.
 
 Track retained corner counts and calibration quality alongside speed. The
-[initial real-data benchmark](benchmark-dtvi.md) uses the same input recording
-but different retained observations. Equal-observation comparisons and
-independent validation are still needed before claiming equivalent accuracy at
-lower computational cost.
+[detector benchmark](benchmark-kalibr-detector.md) compares both Kalibr2
+backends and the original Kalibr run on the same recording. The historical
+backend restores full detection coverage. Independent validation is still
+needed before claiming equivalent absolute accuracy.

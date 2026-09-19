@@ -68,3 +68,184 @@ preserve recorded measurements, but the original runs cannot be fully audited
 from this repository alone. The measurement script supports new runs; preserve
 commands, input hashes, image IDs, raw metrics, and calibration artifacts for
 future comparisons, and repeat trials in alternating order.
+
+## Kalibr detection-count rerun — September 18, 2026
+
+The same `dataset-calib-imu1_512_16.bag` was rerun using `kalibr:latest`
+(image `sha256:681798e00eb84bb07431f94344c6204ef1e7876c89ea4d1cf80a2e1c7d311a0a`).
+The image and the local Kalibr reference checkout both use
+commit `1f60227442d25e36365ef5f72cd80b9666d73467`, with clean working trees.
+Bag SHA-256: `45de668a7d1402de67964f148d6d10be0ce3c0289834a8daeca0a8f0c140d061`.
+
+The original intrinsics were no longer available. They were regenerated with
+Kalibr on the same bag, cam0, pinhole-equidistant, at 5 Hz (260 sampled images),
+with Python/NumPy random seeds set to zero. Consequently this is a new run
+with the same dataset and camera model, not an exact reproduction of the
+September 17 inputs. Target and IMU settings come from `config/dtvi_aprilgrid.yaml`
+and `config/dtvi_imu.yaml`. Intrinsic calibration cost is excluded below.
+
+| Camera–IMU measurement | Kalibr rerun |
+|---|---:|
+| Input cam0 images | 1,038 |
+| Images with accepted target observations | **1,038 (100%)** |
+| Images actually contributing camera residuals | **1,038** |
+| Images excluded at spline time boundaries | 0 |
+| Accepted corners / reprojection residual blocks | 144,494 |
+| Corners per accepted image, min / median / max | 78 / 141 / 144 |
+| IMU readings used, accelerometer and gyroscope each | 10,345 |
+| Extraction function wall time | 17.375 s |
+| Whole-pipeline wall time | 98.894 s |
+| Sampled CPU time | 130.099 s |
+| Peak cgroup memory | 1,571.859 MiB |
+| Sampled peak anonymous memory | 607.465 MiB |
+| Sampled peak file cache | 979.680 MiB |
+| Sampled peak kernel memory | 18.535 MiB |
+| Final mean reprojection error | 0.0836275 px |
+| Offset, `t_imu = t_cam + shift` | +0.163079 ms |
+| Exit code | 0 |
+
+[`scripts/kalibr_count_observations.py`](../scripts/kalibr_count_observations.py)
+wraps the installed Python entry point without changing detection or solver
+selection. It records the successful observations returned by
+`extractCornersFromDataset`, including timestamp and corner count per image.
+“Accepted” means the full Kalibr target-extraction pipeline succeeded, not
+merely that some tag pixels were found. Actual solver image counts come from
+nonempty groups in `IccCamera.allReprojectionErrors` after `addCameraErrorTerms`.
+This avoids relying on Kalibr's “Added camera error terms” message, which prints
+the input observation count even when some frames fall outside spline bounds.
+
+The run used `OMP_NUM_THREADS=1`, `OPENBLAS_NUM_THREADS=1`, Kalibr's default
+multiprocessing worker selection, no CPU pinning, and no concurrent calibration
+container. Cgroup counters were sampled 901 times by the existing measurement
+script. Wall time includes report generation and a final one-second delay;
+extraction time surrounds the extraction function, including its bag-reading
+and multiprocessing overhead. The memory/cache caveats above still apply.
+
+Raw artifacts are retained locally in
+`results/kalibr-detection-20260918/` (ignored by Git): `summary.json`,
+`provenance.json`, `commands.txt`, input YAML files, copies of the measurement
+scripts, and separate `intrinsics/` and `imucam/` folders containing
+`counts.json`, `metrics.json`, `run.log`, calibration YAML, text reports and PDFs.
+The shell scripts and commands record the exact execution; use a fresh output
+folder for another run because each stage creates an `input.bag` symlink.
+
+This rerun establishes that Kalibr accepted and optimized all 1,038 images,
+whereas the earlier Kalibr2 run accepted 146 and optimized 145. It does not
+establish the exact accepted count of the deleted September 17 Kalibr run,
+or isolate which detector, refinement or acceptance criterion explains the
+difference. The previous timing comparison remains an unequal-workload comparison.
+
+## Kalibr2 frame-loss diagnosis — September 18, 2026
+
+A detection-only replay used all 1,038 cam0 images exported losslessly as
+mono16 PNGs from the original ROS1 bag. The current `src/detector.cpp` was
+compiled in `kalibr2:dev` (AprilTag 3.3.0), with counters added only in a
+separate diagnostic copy. Default settings and Kalibr2's rounded 16-to-8-bit
+conversion reproduced exactly **146 accepted images**, with 2,606 corners.
+
+| Baseline stage | Images |
+|---|---:|
+| No raw AprilTag detections | 245 |
+| Only 1–3 raw tags | 647 |
+| At least 4 raw tags | 146 |
+| At least 4 tags after ID/margin/border filters | 146 |
+| Nonempty observations after subpixel refinement | 146 |
+| Within IMU coverage with the default 50 ms margin | 145 |
+
+Thus the dominant loss occurs in AprilTag detection followed by the minimum
+four-tag acceptance threshold, before pose initialization or optimization.
+The accepted frame at timestamp `1520527958513480167` is outside the IMU
+coverage reduced by the default 50 ms time-offset margin. This reproduces the
+146-to-145 count from the historical run; its deleted cache prevents checking
+historical frame identities directly.
+
+Controlled changes on the same images gave:
+
+| Single change from baseline | Accepted images |
+|---|---:|
+| None | 146 |
+| Allow 2 corrected bits (`max_hamming=2`) | 188 |
+| Require only 1 tag (`min_tags=1`) | 793 |
+| Truncate 16-to-8-bit conversion as in Kalibr1 | 146 |
+| Gaussian blur, 3x3 kernel, sigma 0.8 | 0 |
+
+The one-tag setting does not establish usable calibration observations:
+one tag supplies at most four corners, below the solver's six-corner minimum.
+Neither conversion rounding nor the strict Hamming setting explains the bulk
+of the loss. Visual inspection shows the historical grid's black separator
+squares touching tag corners. Compatibility of the modern quadrilateral
+extractor with that pattern is a plausible cause of low raw detection, but
+has not been isolated experimentally. The two-cell border adaptation alone
+is demonstrably insufficient on this recording.
+
+Diagnostic sources, per-image CSV counters, original PNGs, a preview, IMU time
+range and `summary.json` are retained locally under
+`results/kalibr2-detection-diagnosis/`. No production detector settings were
+changed by this investigation.
+
+### Exact target-file verification
+
+`config/dtvi_aprilgrid.yaml` and the Kalibr rerun's `target.yaml` are
+byte-identical (SHA-256
+`daebb0ab9db35b00e4db76fb5b738456bbcb87377c27f4ba1a92a1b8b6c824c2`).
+Both specify 6 rows, 6 columns, 0.088 m tags and spacing ratio 0.3.
+Both detectors select tag36h11 with a two-cell black border.
+A second diagnostic executable loaded the exact Kalibr YAML through Kalibr2's
+production `load_grid()` function instead of the original diagnostic's
+literal grid values. All 1,038 per-image CSV rows were byte-identical to the
+baseline: still 146 accepted images. Target-file differences therefore do
+not explain the reproduced detection loss. Sources, CSV and
+`target-verification.json` are retained in the diagnosis results folder.
+
+## AprilTag 3 internal diagnosis — September 18, 2026
+
+An isolated build of upstream AprilTag 3.3.0 (commit
+`74b51ff6f5e79520c72082d4991a4ae236d575a7`) logged candidate quadrilaterals
+and decoding outcomes. On 11 frames (indices 0, 100, ..., 1000), its default
+per-image detections exactly matched the installed Ubuntu AprilTag library.
+Kalibr supplied reference corners for 387 complete tags on those images;
+partially retained tags were excluded from this diagnostic.
+
+| Diagnostic | Candidate quadrilaterals | Successfully decoded tags | Accepted frames |
+|---|---:|---:|---:|
+| Normal AprilTag 3 extraction | 130 | 17 | 1 / 11 |
+| Inject Kalibr reference quadrilaterals | 387 | 387 | 11 / 11 |
+| Inject references, disable AprilTag edge refinement | 387 | 387 | 11 / 11 |
+
+Every forced-reference decoded ID matches its Kalibr reference exactly, with
+zero bit corrections permitted. Of the normal extractor's 130 candidates,
+109 fail codeword matching and four fail border-contrast validation. These
+counts include candidate quadrilaterals that are not correct tag outlines;
+they do not mean 109 correctly localized tags have unreadable payloads.
+The reference-injection result isolates the dominant failure to quadrilateral
+localization, rather than the two-cell border/codebook adaptation or the
+ability to decode these tags once their outlines are known.
+
+A paired synthetic experiment rendered identical historical tag codes, with
+and without the diagonal black separator squares used by Kalibr's symmetric
+corner layout. Both variants used the same projection and image interpolation:
+
+| Tag side | Image rotation | Decoded without separators | Decoded with separators |
+|---|---:|---:|---:|
+| 32 px | 0 degrees | 6 / 6 | 6 / 6 |
+| 32 px | 5 degrees | 6 / 6 | 6 / 6 |
+| 32 px | 15 degrees | 6 / 6 | 3 / 6 |
+| 32 px | 35 degrees | 6 / 6 | 0 / 6 |
+
+This establishes that corner-touching separators can cause the observed type
+of detection loss after image rotation/resampling. AprilTag 3 thresholds the
+image, forms connected components and boundary clusters, then fits quads;
+Kalibr's historical detector instead assembles gradient-based line segments.
+The separator contact can disrupt the former's tag-outline extraction. The
+synthetic test isolates this mechanism but does not quantify its contribution
+to every rejected frame of the real recording.
+
+Existing axis-aligned synthetic tests already include separators, but rotate
+only by multiples of 90 degrees. Their success therefore does not cover this
+failure under oblique image sampling. The injected-quadrilateral experiment
+is a diagnostic, not an autonomous detection solution or speed benchmark.
+No production detector code or settings were changed.
+
+Sources, build/run scripts, instrumentation patch, reference corners, raw
+traces, paired synthetic images and `summary.json` are retained in
+`results/kalibr2-detection-diagnosis/internal/`.

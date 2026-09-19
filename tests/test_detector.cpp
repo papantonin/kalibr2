@@ -106,67 +106,86 @@ void expect_throw(Action&& action, const std::string& description) {
 
 int main() {
   try {
-    for (const int border : {1, 2}) {
-      const cv::Mat original = make_board(border);
-      for (const double decimation : {1.0, 2.0}) {
-        std::cout << "Testing border=" << border << " decimation=" << decimation << std::endl;
-        kalibr2::DetectorOptions options;
-        options.tag_border = border;
-        options.quad_decimate = decimation;
-        kalibr2::AprilGridDetector detector(grid, options);
-        for (int rotation = 0; rotation < 4; ++rotation) {
-          cv::Mat oriented;
-          if (rotation == 0) oriented = original;
-          if (rotation == 1) cv::rotate(original, oriented, cv::ROTATE_90_CLOCKWISE);
-          if (rotation == 2) cv::rotate(original, oriented, cv::ROTATE_180);
-          if (rotation == 3) cv::rotate(original, oriented, cv::ROTATE_90_COUNTERCLOCKWISE);
-          // Exercise zero-copy views with padding: an ROI's stride exceeds width.
-          cv::Mat padded(oriented.rows + 10, oriented.cols + 32, CV_8UC1, cv::Scalar(137));
-          cv::Mat roi = padded(cv::Rect(13, 5, oriented.cols, oriented.rows));
-          oriented.copyTo(roi);
-          require(!roi.isContinuous(), "Test image must have padded rows");
-          const cv::Mat before = padded.clone();
-          // Decimation can lose a tag: validate all returned coordinates and
-          // require four visible tags; full-resolution detection must find all.
-          check_board(detector.detect(roi, 1234567890123456789LL), rotation, decimation==1.0);
-          require(cv::norm(padded, before, cv::NORM_INF) == 0, "Detector must not modify the input buffer");
+    cv::setNumThreads(1);
+    for (const auto backend : {kalibr2::DetectorBackend::AprilTag3, kalibr2::DetectorBackend::Kalibr}) {
+      kalibr2::DetectorOptions defaults;
+      defaults.backend = backend;
+      for (const int border : {1, 2}) {
+        const cv::Mat original = make_board(border);
+        for (const double decimation : {1.0, 2.0}) {
+          if (backend == kalibr2::DetectorBackend::Kalibr && decimation != 1.0) continue;
+          std::cout << "Testing " << kalibr2::detector_name(backend) << " border=" << border << " decimation=" << decimation << std::endl;
+          kalibr2::DetectorOptions options = defaults;
+          options.tag_border = border;
+          options.quad_decimate = decimation;
+          kalibr2::AprilGridDetector detector(grid, options);
+          for (int rotation = 0; rotation < 4; ++rotation) {
+            cv::Mat oriented;
+            if (rotation == 0) oriented = original;
+            if (rotation == 1) cv::rotate(original, oriented, cv::ROTATE_90_CLOCKWISE);
+            if (rotation == 2) cv::rotate(original, oriented, cv::ROTATE_180);
+            if (rotation == 3) cv::rotate(original, oriented, cv::ROTATE_90_COUNTERCLOCKWISE);
+            // Exercise zero-copy views with padding: an ROI's stride exceeds width.
+            cv::Mat padded(oriented.rows + 10, oriented.cols + 32, CV_8UC1, cv::Scalar(137));
+            cv::Mat roi = padded(cv::Rect(13, 5, oriented.cols, oriented.rows));
+            oriented.copyTo(roi);
+            require(!roi.isContinuous(), "Test image must have padded rows");
+            const cv::Mat before = padded.clone();
+            // Decimation can lose a tag: validate all returned coordinates and
+            // require four visible tags; full-resolution detection must find all.
+            check_board(detector.detect(roi, 1234567890123456789LL), rotation, decimation==1.0);
+            require(cv::norm(padded, before, cv::NORM_INF) == 0, "Detector must not modify the input buffer");
+          }
         }
       }
-    }
 
-    const cv::Mat board = make_board(2);
-    kalibr2::AprilGridDetector detector(grid);
-    expect_throw<std::runtime_error>([&] { detector.detect(make_board(2, true), 1); },
-                                    "Duplicate board IDs must be rejected");
-    expect_throw<std::invalid_argument>([&] { detector.detect(cv::Mat{}, 1); },
-                                       "Empty images must be rejected");
-    expect_throw<std::invalid_argument>([&] { detector.detect(cv::Mat(100, 100, CV_8UC3), 1); },
-                                       "Color input must be explicitly converted by the pipeline");
-    expect_throw<std::invalid_argument>([] {
-      kalibr2::AprilGridDetector invalid(kalibr2::GridConfig{100000, 100000, 0.08, 0.25});
-    }, "Out-of-range tag counts must be rejected without multiplication overflow");
-    expect_throw<std::invalid_argument>([] {
-      kalibr2::DetectorOptions options;
-      options.tag_border = 3;
-      kalibr2::AprilGridDetector invalid(grid, options);
-    }, "Unsupported borders must be rejected");
-    require(detector.detect(cv::Mat(100, 100, CV_8UC1, cv::Scalar(255)), 42).corners.empty(),
-            "Blank frames must yield empty observations");
-    kalibr2::AprilGridDetector smaller_grid(kalibr2::GridConfig{2, 2, 0.08, 0.25});
-    const auto limited = smaller_grid.detect(board, 42);
-    require(limited.corners.size() == 16, "Tags outside configured ID range must be excluded");
-    for (const auto& corner : limited.corners) require(corner.tag_id < 4, "Out-of-range ID survived filtering");
+      const cv::Mat board = make_board(2);
+      kalibr2::AprilGridDetector detector(grid, defaults);
+      expect_throw<std::runtime_error>([&] { detector.detect(make_board(2, true), 1); },
+                                      "Duplicate board IDs must be rejected");
+      expect_throw<std::invalid_argument>([&] { detector.detect(cv::Mat{}, 1); },
+                                         "Empty images must be rejected");
+      expect_throw<std::invalid_argument>([&] { detector.detect(cv::Mat(100, 100, CV_8UC3), 1); },
+                                         "Color input must be explicitly converted by the pipeline");
+      expect_throw<std::invalid_argument>([] {
+        kalibr2::AprilGridDetector invalid(kalibr2::GridConfig{100000, 100000, 0.08, 0.25});
+      }, "Out-of-range tag counts must be rejected without multiplication overflow");
+      expect_throw<std::invalid_argument>([] {
+        kalibr2::DetectorOptions options;
+        options.tag_border = 3;
+        kalibr2::AprilGridDetector invalid(grid, options);
+      }, "Unsupported borders must be rejected");
+      require(detector.detect(cv::Mat(100, 100, CV_8UC1, cv::Scalar(255)), 42).corners.empty(),
+              "Blank frames must yield empty observations");
+      kalibr2::AprilGridDetector smaller_grid(kalibr2::GridConfig{2, 2, 0.08, 0.25}, defaults);
+      const auto limited = smaller_grid.detect(board, 42);
+      require(limited.corners.size() == 16, "Tags outside configured ID range must be excluded");
+      for (const auto& corner : limited.corners) require(corner.tag_id < 4, "Out-of-range ID survived filtering");
 
-    // Same immutable image, independent detector state per TBB worker. The
-    // caller's bounded streaming scheduler controls how many images can live.
-    oneapi::tbb::enumerable_thread_specific<std::unique_ptr<kalibr2::AprilGridDetector>> workers(
-        [] { return std::make_unique<kalibr2::AprilGridDetector>(grid); });
-    oneapi::tbb::task_arena arena(4);
-    arena.execute([&] {
-      oneapi::tbb::parallel_for(0, 16, [&](int) {
-        check_board(workers.local()->detect(board, 1234567890123456789LL));
+      // Same immutable image, independent detector state per TBB worker. The
+      // caller's bounded streaming scheduler controls how many images can live.
+      oneapi::tbb::enumerable_thread_specific<std::unique_ptr<kalibr2::AprilGridDetector>> workers(
+          [&] { return std::make_unique<kalibr2::AprilGridDetector>(grid, defaults); });
+      oneapi::tbb::task_arena arena(4);
+      arena.execute([&] {
+        oneapi::tbb::parallel_for(0, 16, [&](int) {
+          check_board(workers.local()->detect(board, 1234567890123456789LL));
+        });
       });
-    });
+      if (backend == kalibr2::DetectorBackend::Kalibr) {
+        // Oblique, small tags with corner-touching separators caused real-data losses.
+        cv::Mat oblique;
+        const auto M = cv::getRotationMatrix2D(cv::Point2f(board.cols / 2.0F, board.rows / 2.0F), 35, 0.2);
+        cv::warpAffine(board, oblique, M, board.size(), cv::INTER_LINEAR, cv::BORDER_CONSTANT, cv::Scalar(255));
+        require(detector.detect(oblique, 1).corners.size() >= 20,
+                "Historical detector must recover oblique tags with separators");
+        auto invalid = defaults; invalid.quad_decimate = 2;
+        expect_throw<std::invalid_argument>([&] { kalibr2::AprilGridDetector bad(grid, invalid); },
+                                           "Historical decimation must not be silently ignored");
+      }
+    }
+    expect_throw<std::invalid_argument>([] { kalibr2::parse_detector_backend("unknown"); },
+                                       "Unknown backend must fail");
     std::cout << "AprilGrid: Kalibr border 2 and standard border 1, rotations, full-resolution refinement, "
                  "strides, immutable input, invalid/duplicate IDs and parallel workers passed\n";
     return 0;

@@ -14,6 +14,8 @@ struct ExtractedData {
   std::vector<ImuSample> imu;
   std::size_t frames{}, detected_frames{}, max_in_flight{};
   double elapsed_seconds{};
+  // V1 caches predate backend metadata and are interpreted as AprilTag 3.
+  DetectorBackend detector_backend{DetectorBackend::AprilTag3};
   int tag_border{2};
   double decimate{1.0};
   bool from_cache{};

@@ -13,7 +13,7 @@ Kalibr release or a replacement for all of its features.
 | Area | Official Kalibr | Kalibr2 approach |
 |---|---|---|
 | Software stack | ROS 1 tooling with Python and C++ components | C++20 calibration pipeline and native ROS 2 bag input |
-| AprilGrid extraction | Historical Kalibr detector and extraction pipeline | AprilTag 3 detection across images with oneTBB workers |
+| AprilGrid extraction | Historical Kalibr detector and extraction pipeline | Historical Kalibr detector by default, streamed across oneTBB workers; AprilTag 3 optional |
 | High-resolution images | Historical image processing pipeline | Streaming input, bounded images in flight, pixels released after detection |
 | Optimization | Kalibr's aslam backend | Ceres with parallel residual/Jacobian evaluation and a sparse linear solver |
 | Trajectory and IMU model | Default order-6 pose spline and time-varying biases | Cubic SO(3) + R3 splines and constant IMU biases |
@@ -67,6 +67,12 @@ docker run --rm --user "$(id -u):$(id -g)" \
 process RAM**. Bag buffers, observations, IMU samples, and the solver require
 additional memory. `--tag-border 2` selects historical Kalibr targets; use `1`
 for standard AprilTag 3 targets. Keep `--decimate 1` for initial validation.
+The bundled historical Kalibr detector is the default. It processes the original
+distorted images, supports `tag36h11` with either border, and requires
+`--decimate 1`. Use `--detector apriltag3` only to select the optional AprilTag 3
+backend. Detector work buffers are outside the pixel-buffer budget. See the
+[detector comparison](docs/benchmark-kalibr-detector.md).
+
 Measure the printed target: `tagSize` is in meters and `tagSpacing` is a ratio.
 
 Each run requires a new output directory and saves:
@@ -93,29 +99,32 @@ On a synthetic 11 MP sequence, parallel extraction took **12.36 s versus
 23.46 s** with one worker, producing byte-identical caches. The 512 MiB image
 budget limited processing to two simultaneous images.
 
-A first TUM VI comparison, using the recording referenced by DT-VI-Calib,
-measured:
+A matched TUM VI rerun with the historical detector, using the recording
+referenced by DT-VI-Calib, measured:
 
-| Camera–IMU run | Kalibr | Kalibr2 |
+| Camera–IMU run | Kalibr | Kalibr2 + Kalibr detector |
 |---|---:|---:|
-| Wall time | 110.06 s | 17.32 s |
-| CPU time | 142.25 s | 35.48 s |
-| Sampled peak anonymous memory | 612.45 MiB | 87.22 MiB |
+| Images detected | 1,038 / 1,038 | 1,038 / 1,038 |
+| Wall time | 98.89 s | 34.84 s |
+| Extraction time | 17.37 s | 12.48 s |
+| CPU time | 130.10 s | 70.91 s |
+| Sampled peak anonymous memory | 607.47 MiB | 367.70 MiB |
 
-These are preliminary whole-pipeline measurements, **not an equal-workload
-solver benchmark**. Both runs read the same inputs, but Kalibr2 detected the
-target in only 146 of 1,038 images and optimized 145 frames. Retained observations
-and model complexity differ. File-cache memory is excluded from the anonymous
-memory row, and reprojection statistics differ between tools. These results do
-not establish an accuracy-preserving speedup.
+Kalibr2 used 1,035 frames after applying its IMU-overlap margin. The original
+Kalibr run used 1,038. The detector family and input are matched, but filtering,
+corner counts, solver models, report generation, and retained frames still
+differ. These single runs establish reliable detection on this recording, not
+an accuracy guarantee or a pure solver benchmark.
 
-See the [real-data benchmark](docs/benchmark-dtvi.md) and
-[synthetic validation](docs/validation.md) for details.
+See the [real-data benchmark](docs/benchmark-dtvi.md),
+[synthetic validation](docs/validation.md), and
+[detector comparison](docs/benchmark-kalibr-detector.md)
+for details.
 
 ## Development priorities
 
-1. Explain missed detections and compare both solvers on common observations.
-2. Validate spatial/time estimates on independent recordings and sensor references.
+1. Validate spatial/time estimates on independent recordings and sensor references.
+2. Benchmark bounded extraction on long 4K recordings and machines with more cores.
 3. Add variable IMU biases, per-corner robustness, and uncertainty diagnostics.
 4. Profile bottlenecks before adding GPU support; extend acquisition guidance and camera support.
 
