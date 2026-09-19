@@ -89,11 +89,11 @@ The cache remains available if a later optimization fails. Reuse it with
 
 ## Measuring resources
 
-[`measure_docker_run.sh`](../scripts/measure_docker_run.sh) requires Linux cgroups
+[`measure_docker_run.sh`](../tools/benchmark/measure_docker_run.sh) requires Linux cgroups
 v2 and Docker. Usage:
 
 ```text
-scripts/measure_docker_run.sh CONTAINER_NAME METRICS_JSON LOG_FILE -- docker run ...
+tools/benchmark/measure_docker_run.sh CONTAINER_NAME METRICS_JSON LOG_FILE -- docker run ...
 ```
 
 Use the same name in `docker run --name CONTAINER_NAME`. The script samples
